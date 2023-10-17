@@ -131,9 +131,11 @@ jgs_activity |>
          min_sec = str_c(mins, "min. ", secs, "sek."),
          min_sec = ifelse(str_detect(min_sec, "^0min"),
                           str_c(secs, "sek."),
-                          min_sec)) |>
+                          min_sec),
+         Date = as.Date(speech_start_time),
+         speech_start_time = str_sub(speech_start_time, 12, nchar(speech_start_time))) |>
   select(`Meeting` = meeting_id,
-         `Agenda #` = agenda_case_number,
+         `Date` = Date,
          `Start` = speech_start_time,
          `Duration` = min_sec,
          `Type` = speech_type) |>
@@ -278,7 +280,7 @@ stortingscrape_functions_info %>%
 
 # API connections
 
-## Connecting parts {auto-animate="true" .smaller}
+## Connecting parts {auto-animate="true" }
 
 ```txt
 Parliamentary periods
@@ -286,7 +288,7 @@ Parliamentary periods
 └── https://data.stortinget.no/eksport/stortingsperioder
 ```
 
-## Connecting parts {auto-animate="true" .smaller}
+## Connecting parts {auto-animate="true" }
 
 ```txt
 Parliamentary periods
@@ -294,11 +296,11 @@ Parliamentary periods
 └── https://data.stortinget.no/eksport/stortingsperioder
     └── MPs in a period
         ├── "GHB", "SIVJ", "EIGE", "ALYS", osv
-        └── https://data.stortinget.no/eksport/representanter?stortingsperiodeid=2005-2009
+        └── /eksport/representanter?stortingsperiodeid=2005-2009
               
 ```
 
-## Connecting parts {auto-animate="true" .smaller}
+## Connecting parts {auto-animate="true" }
 
 ```txt
 Parliamentary periods
@@ -306,14 +308,14 @@ Parliamentary periods
 └── https://data.stortinget.no/eksport/stortingsperioder
     └── MPs in a period
         ├── "GHB", "SIVJ", "EIGE", "ALYS", osv
-        └── https://data.stortinget.no/eksport/representanter?stortingsperiodeid=2005-2009
+        └── /eksport/representanter?stortingsperiodeid=2005-2009
             └── MP data
-                └── https://data.stortinget.no/eksport/person?personid=GHB
+                └── /eksport/person?personid=GHB
             
 
 ```
 
-## Connecting parts {auto-animate="true" .smaller}
+## Connecting parts {auto-animate="true" }
 
 ```txt
 Parliamentary periods
@@ -321,17 +323,17 @@ Parliamentary periods
 └── https://data.stortinget.no/eksport/stortingsperioder
     └── MPs in a period
         ├── "GHB", "SIVJ", "EIGE", "ALYS", osv
-        └── https://data.stortinget.no/eksport/representanter?stortingsperiodeid=2005-2009
+        └── /eksport/representanter?stortingsperiodeid=2005-2009
             ├── MP data
-            │   └── https://data.stortinget.no/eksport/person?personid=GHB
+            │   └── /eksport/person?personid=GHB
             └── MP biography
-                └── https://data.stortinget.no/eksport/kodetbiografi?personid=EIGE
+                └── /eksport/kodetbiografi?personid=EIGE
             
 
 ```
 
 
-## Connecting parts {auto-animate="true" .smaller}
+## Connecting parts {auto-animate="true" }
 
 ```txt
 Parliamentary periods
@@ -339,13 +341,13 @@ Parliamentary periods
 └── https://data.stortinget.no/eksport/stortingsperioder
     └── MPs in a period
         ├── "GHB", "SIVJ", "EIGE", "ALYS", osv
-        └── https://data.stortinget.no/eksport/representanter?stortingsperiodeid=2005-2009
+        └── /eksport/representanter?stortingsperiodeid=2005-2009
             ├── MP data
-            │   └── https://data.stortinget.no/eksport/person?personid=GHB
+            │   └── /eksport/person?personid=GHB
             ├── MP biography
-            │   └── https://data.stortinget.no/eksport/kodetbiografi?personid=EIGE
+            │   └── /eksport/kodetbiografi?personid=EIGE
             └── MP picture
-                └── https://data.stortinget.no/eksport/personbilde?personid=ALYS
+                └── /eksport/personbilde?personid=ALYS
 
 ```
 
@@ -403,8 +405,7 @@ parl_periods |>
 
 ## Example -- step 2 { .smaller }
 
-```{r}
-#| echo: true
+```{r, echo=1}
 #| output-location: column-fragment
 mps7377 <- get_parlperiod_mps("1973-77")
 
@@ -601,7 +602,7 @@ mps7377 |>
 
 ```
 
-## Bonus example
+## Bonus example -- Literature
 
 
 ```{r}
