@@ -1,0 +1,749 @@
+---
+title: "[stortingscrape]{.darkcyan}"
+subtitle: "An R package for accessing data from the Norwegian parliament `r emo::ji('castle')`"
+date: today
+author:
+  - name: Martin Søyland
+    affiliation: University of Oslo
+    email: martin.soyland@stv.uio.no
+format: 
+  revealjs:
+    transition: zoom
+    transition-speed: slow
+    incremental: true
+    theme: [serif, ../pres.scss]
+filters:
+  - code-fullscreen    
+bibliography: "../../refs.bib"
+# self-contained: true
+editor_options: 
+  chunk_output_type: console
+---
+
+
+# [The process]{.midgreen}`r emo::ji("mag")` { data-background="./figs/tad_fig2.png" data-background-size=55% data-background-position="50% 70%"}
+
+[@Gilardi2018]{.smalltext}
+
+```{r}
+#| include: false
+
+library(stortingscrape)
+library(dplyr)
+library(tidytext)
+library(quanteda)
+library(stringr)
+library(DT)
+quanteda_options("print_dfm_max_ndoc" = 10)
+source("theme_sscrape.R")
+```
+
+<!-- # [Follow the presentation]{.midgreen} -->
+
+<!-- fixme: make qr if necessary -->
+<!-- ![](figs/qr_presentation2.png) -->
+<!-- # { data-background="figs/uio_page2.png" background-size="80%" background-position="50% 50%"} -->
+
+
+
+  
+
+. . .
+
+<div class="pulse"></div>
+
+</br></br></br></br></br></br></br></br></br></br></br></br></br></br></br></br></br></br>
+
+# Stortinget's API
+
+[data.stortinget.no](https://data.stortinget.no/dokumentasjon-og-hjelp/)
+
+## [The problem]{.purple} `r emo::ji("confused")` { data-background="figs/xml2.png" data-background-size=50% data-background-position="80% 50%" .smaller }
+
+## [The solution]{.blue} `r emo::ji("nerd")` { data-background="figs/xml2.png" data-background-size=50% data-background-position="80% 50%" .smaller transition="none"}
+
+```{r}
+#| label: ss_source
+#| echo: true
+#| eval: false
+
+get_session_mp_speech_activity <- function(sessionid = NA, mp_id = NA, good_manners = 0){
+
+  url <- paste0(
+    "https://data.stortinget.no/eksport/representanttaleaktiviteter?personid=",
+    mp_id, "&sesjonid=", sessionid)
+
+  base <- GET(url)
+
+  resp <- http_type(base)
+  if(resp != "text/xml") stop(paste0("Response of ", url, " is not text/xml."), call. = FALSE)
+
+  status <- http_status(base)
+  if(status$category != "Success") stop(paste0("Response of ", url, " returned as '", status$message, "'"), call. = FALSE)
+
+  tmp <- read_html(base)
+
+  tmp2 <- data.frame(response_date      = tmp |> html_elements("representant_tale_aktivitet_oversikt > respons_dato_tid") |> html_text(),
+                     version            = tmp |> html_elements("representant_tale_aktivitet_oversikt > versjon")          |> html_text(),
+                     session_id         = tmp |> html_elements("representant_tale_aktivitet_oversikt > sesjon_id")        |> html_text(),
+                     agenda_case_number = tmp |> html_elements("representant_tale_aktivitet > dagsorden_sak_nummer")      |> html_text(),
+                     meeting_id         = tmp |> html_elements("representant_tale_aktivitet > mote_id")                   |> html_text(),
+                     speech_start_time  = tmp |> html_elements("representant_tale_aktivitet > tale_start_tid")            |> html_text(),
+                     speech_type        = tmp |> html_elements("representant_tale_aktivitet > tale_type")                 |> html_text(),
+                     speech_length_secs = tmp |> html_elements("representant_tale_aktivitet > tale_varighet_sekunder")    |> html_text())
+
+  Sys.sleep(good_manners)
+
+  return(tmp2)
+
+}
+
+```
+
+## [The result]{.yellow} `r emo::ji("partying_face")` { transition="none"}
+
+
+```{r}
+#| label: jgs_activity
+#| echo: true
+#| eval: false
+get_session_mp_speech_activity("2022-2023", "JGS")
+```
+
+</br>
+
+. . .
+
+```{r}
+#| echo: false
+#| eval: true
+load("data/jgs_activity.rda")
+set.seed(85932)
+jgs_activity |>
+  mutate(mins = as.numeric(speech_length_secs) %/% 60,
+         secs = as.numeric(speech_length_secs) %% 60,
+         min_sec = str_c(mins, "min. ", secs, "sek."),
+         min_sec = ifelse(str_detect(min_sec, "^0min"),
+                          str_c(secs, "sek."),
+                          min_sec)) |>
+  select(`Meeting` = meeting_id,
+         `Agenda #` = agenda_case_number,
+         `Start` = speech_start_time,
+         `Duration` = min_sec,
+         `Type` = speech_type) |>
+  group_by(Type) |>
+  slice_sample(n = 2) |>
+  kableExtra::kable(booktabs = TRUE) |>
+  kableExtra::kable_styling(font_size = "22") |> 
+  kableExtra::column_spec(1:5, background = "#F0F1EB") |> 
+  kableExtra::row_spec(0, background = "#F0F1EB")
+```
+
+
+#  {data-background="https://github.com/martigso/stortingscrape/blob/master/man/figures/stortingscrape.png?raw=true" data-background-size=20%}
+
+
+## Install! { auto-animate="true" .smaller }
+
+</br>
+
+:::: {.columns}
+
+::: {.column width="55%"}
+
+
+```{r}
+#| label: stortingscrape_install
+#| eval: false
+#| echo: true
+
+# CRAN (version 0.1.3)
+install.packages("stortingscrape")
+
+# Development version (version 0.1.4)
+devtools::install_github("martigso/stortingscrape")
+
+```
+
+![](figs/ss2.png){width="65%"}
+
+:::
+
+::: {.column width="30%" }
+
+```{r}
+#| eval: false
+#| echo: false
+library(qrcode)
+png("figs/ss_qrcode.png")
+qr_code("https://martigso.github.io/stortingscrape/functions") |>
+  plot()
+dev.off()
+```
+
+<!-- badges: start -->
+[![Github Version](https://img.shields.io/github/r-package/v/martigso/stortingscrape?color=yellowgreen)](https://github.com/martigso/stortingscrape)
+[![Total Downloads](http://cranlogs.r-pkg.org/badges/grand-total/stortingscrape?color=orange)](https://cran.r-project.org/package=stortingscrape)
+<!-- badges: end -->
+
+
+
+[All functions:]{.darkred}
+![](figs/ss_qrcode.png){width="90%"}
+
+:::
+
+::::
+
+
+## {.smaller}
+
+
+```{r}
+#| file: functions.R
+#| 
+
+```
+
+
+```{r}
+stortingscrape_functions_info %>% 
+  select(Function, Arguments, Title, Description) %>% 
+  # Show a datatable with five visible rows
+  datatable(options = list(pageLength = 12),
+            rownames = FALSE) |> 
+  formatStyle(columns = 0:3, `font-size` = '12px') |> 
+  formatStyle(0:35,
+              target = "row",
+              `font-size` = '12px')
+
+
+```
+
+# Philosophy & principles
+
+:::: {.columns}
+
+::: {.column width="50%"}
+
+- `r emo::ji("bust_in_silhouette")` User agency 
+    - Tailoring data for specific needs. 
+- `r emo::ji("relieved")` Simplifying data structures
+    - 2 dimensional data frames, when possible
+    - Lists of data frames, if necessary
+:::
+
+::: {.column width="50%" }
+
+- `r emo::ji("worker")` Easy workflow
+    - Connecting parts of the API together
+    - Example: MP age and roll call votes
+- `r emo::ji("scroll")` Limit data duplication
+    - Avoid getting the same data from different functions
+
+:::
+
+::::
+
+
+# Scope: three data types { .smaller .center }
+
+::: {.r-stack}
+
+![](./figs/building.jpg){width=70% .fragment .r-stretch .current-visible}
+
+![](./figs/mps.png){width=70% .fragment .r-stretch .current-visible}
+
+![](./figs/horing.png){width=70% .fragment .r-stretch .current-visible}
+
+:::
+
+
+
+## Scope: exceptions
+
+| <b><u>Type</u></b>| <b><u>Example</u></b>          |
+|:----------------|:-----------------|
+| [Duplicated data]{.darkred}           | MP county in all activities |
+| [Current speaker list]{.orange}       | For live extraction (if you need this, you do not need my package) |
+| [Publication figures]{.yellow}        | Attachments to publications |
+| [Publications (sort of)]{.midgreen}   | `r emo::ji("bee")` `r emo::ji("bee")` `r emo::ji("bee")` |
+
+
+# API connections
+
+## Connecting parts {auto-animate="true" .smaller}
+
+```txt
+Parliamentary periods
+├── "2001-2005", "2017-2021", etc
+└── https://data.stortinget.no/eksport/stortingsperioder
+```
+
+## Connecting parts {auto-animate="true" .smaller}
+
+```txt
+Parliamentary periods
+├── "2001-2005", "2017-2021", etc
+└── https://data.stortinget.no/eksport/stortingsperioder
+    └── MPs in a period
+        ├── "GHB", "SIVJ", "EIGE", "ALYS", osv
+        └── https://data.stortinget.no/eksport/representanter?stortingsperiodeid=2005-2009
+              
+```
+
+## Connecting parts {auto-animate="true" .smaller}
+
+```txt
+Parliamentary periods
+├── "2001-2005", "2017-2021", etc
+└── https://data.stortinget.no/eksport/stortingsperioder
+    └── MPs in a period
+        ├── "GHB", "SIVJ", "EIGE", "ALYS", osv
+        └── https://data.stortinget.no/eksport/representanter?stortingsperiodeid=2005-2009
+            └── MP data
+                └── https://data.stortinget.no/eksport/person?personid=GHB
+            
+
+```
+
+## Connecting parts {auto-animate="true" .smaller}
+
+```txt
+Parliamentary periods
+├── "2001-2005", "2017-2021", etc
+└── https://data.stortinget.no/eksport/stortingsperioder
+    └── MPs in a period
+        ├── "GHB", "SIVJ", "EIGE", "ALYS", osv
+        └── https://data.stortinget.no/eksport/representanter?stortingsperiodeid=2005-2009
+            ├── MP data
+            │   └── https://data.stortinget.no/eksport/person?personid=GHB
+            └── MP biography
+                └── https://data.stortinget.no/eksport/kodetbiografi?personid=EIGE
+            
+
+```
+
+
+## Connecting parts {auto-animate="true" .smaller}
+
+```txt
+Parliamentary periods
+├── "2001-2005", "2017-2021", etc
+└── https://data.stortinget.no/eksport/stortingsperioder
+    └── MPs in a period
+        ├── "GHB", "SIVJ", "EIGE", "ALYS", osv
+        └── https://data.stortinget.no/eksport/representanter?stortingsperiodeid=2005-2009
+            ├── MP data
+            │   └── https://data.stortinget.no/eksport/person?personid=GHB
+            ├── MP biography
+            │   └── https://data.stortinget.no/eksport/kodetbiografi?personid=EIGE
+            └── MP picture
+                └── https://data.stortinget.no/eksport/personbilde?personid=ALYS
+
+```
+
+. . .
+
+[Let's use this as our example!]{.midgreen}
+
+## Example -- step 1 { .smaller }
+
+:::: { .columns }
+
+::: { .column width=65% }
+
+```{r}
+#| echo: true
+data("parl_periods", package = "stortingscrape")
+
+data("parl_sessions", package = "stortingscrape")
+
+# get_parlperiods()
+
+# get_parlsessions()
+
+```
+
+- Periods
+    - [Elected MPs]{.darkcyan} -- `get_parlperiod_mps()`
+    - Presidency -- `get_parlperiod_presidency()`
+- Sessions
+    - Questions -- `get_session_questions()`
+    - Cases -- `get_session_cases()`
+    - Hearings -- `get_session_hearings()`
+    - and so on
+
+:::
+
+::: { .column width=35% .fragment }
+
+```{r}
+parl_periods |> 
+  select(!c(response_date, version)) |>
+  mutate(from = as.Date(from),
+         to = as.Date(to)) |> 
+  kableExtra::kable(booktabs = TRUE) |>
+  kableExtra::kable_styling(font_size = "16") |> 
+  kableExtra::column_spec(1:4, background = "#F0F1EB") |> 
+  kableExtra::row_spec(0, background = "#F0F1EB") |> 
+  kableExtra::row_spec(13, background = "#0095A8", color = "white")
+
+```
+
+:::
+
+::::
+
+## Example -- step 2 { .smaller }
+
+```{r}
+#| echo: true
+#| output-location: column-fragment
+mps7377 <- get_parlperiod_mps("1973-77")
+
+mps7377 |> 
+  select(lastname, county_id, party_id) |> 
+  head()
+
+```
+
+. . .
+
+```{r}
+#| echo: false
+#| fig-width: 8
+
+mps7377 |> 
+  filter(county_id == "Ro" | county_id == "Os") |> 
+  mutate(party_name = case_match(
+    party_id,
+    "ALP" ~ "Anders Lange's Party",
+    "A"   ~ "Labor Party",
+    "H"   ~ "Conservatives",
+    "KrF" ~ "Chr. Democratic Party",
+    "SVf" ~ "Socialist",
+    "Sp"  ~ "Center Party"),
+    county = ifelse(county_id == "Ro", "Rogaland", "Oslo")) |> 
+  ggplot(aes(x = forcats::fct_infreq(party_id), 
+             fill = forcats::fct_infreq(party_name))) +
+  geom_bar() +
+  facet_wrap(~ county) +
+  guides(fill = guide_legend(nrow = 1)) +
+  labs(x = "", y = "Frequency", fill = "") +
+  scale_y_continuous(breaks = seq(0, 10, 1),
+                     expand = expansion(mult = c(0, .1))) +
+  scale_fill_manual(values = c(
+    "Anders Lange's Party"  = "blue4",
+    "Labor Party"           = "red3",
+    "Conservatives"         = "skyblue", 
+    "Chr. Democratic Party" = "yellow3",
+    "Socialist"             = "indianred1",
+    "Center Party"          = "forestgreen"
+    )) +
+  theme_stv2022() +
+  theme(legend.position = "bottom",
+        strip.background = element_rect(color = "black"))
+  
+
+```
+
+## Example -- step 3a 
+
+:::: { .columns }
+
+::: { .column}
+
+```{r}
+
+load("data/mp_bios.rda")
+
+mps7377[20:(which(mps7377$mp_id == "BEÅS")+7), c("firstname", "lastname", "gender", "county_id", "party_id")] |> 
+  kableExtra::kable(booktabs = TRUE) |>
+  kableExtra::kable_styling(font_size = "16") |> 
+  kableExtra::column_spec(1:6, background = "#F0F1EB") |> 
+  kableExtra::row_spec(7, background = "darkcyan", color = "white") |> 
+  kableExtra::row_spec(0, background = "#F0F1EB")
+
+# get_mp_pic("BEÅS", destfile = "figs/mp_expic.jpeg", size = "stort")
+```
+
+:::
+
+::: { .column}
+
+![](figs/mp_expic.jpeg){width=75%}
+
+:::
+
+::::
+
+## Example -- step 3b { .smaller }
+
+
+:::: { .columns }
+
+::: { .column}
+
+```{r}
+#| echo: true
+#| eval: false
+mp_bios <- lapply(mps7377$mp_id, 
+                  get_mp_bio, 
+                  good_manners = 2)
+
+names(mp_bios$BEÅS)
+
+```
+
+::: 
+
+::: { .column}
+
+```{r}
+print(names(mp_bios$AALI), width = 60)
+
+```
+
+:::
+
+::::
+
+</br>
+
+. . .
+
+```{r}
+#| echo: false
+
+rbind(mp_bios$BEÅS$mother, mp_bios$BEÅS$father) |>
+  mutate(profession = "lærer") |> 
+  select(first_name, last_name, birth_year, death_year, profession) |> 
+  kableExtra::kable(booktabs = TRUE, caption = "`$mother & $father`") |>
+  kableExtra::kable_styling(font_size = "16") |> 
+  kableExtra::column_spec(1:4, background = "#F0F1EB") |> 
+  kableExtra::column_spec(5, background = "darkcyan", color = "white") |> 
+  kableExtra::row_spec(0, background = "#F0F1EB")
+```
+
+</br>
+
+. . . 
+
+
+```{r}
+#| echo: false
+mp_bios$BEÅS$vocation[1:7, ] |> 
+  select(from_year, to_year, name) |> 
+  kableExtra::kable(booktabs = TRUE, caption = "$vocation") |>
+  kableExtra::kable_styling(font_size = "16") |> 
+  kableExtra::column_spec(1:3, background = "#F0F1EB") |> 
+  kableExtra::row_spec(0, background = "#F0F1EB") |> 
+  kableExtra::row_spec(4, background = "darkcyan", color = "white") 
+
+```
+
+
+## Example -- step 4a { .smaller }
+
+```{r}
+
+voc_map <- lapply(mp_bios, \(x) {
+  message(x$root$id)
+  tmp_father <- x$father$profession
+  tmp_mother <- x$mother$profession
+  
+  tmp_voc <- tolower(x$vocation$name)
+  
+  match_father <- ifelse(tmp_father == "", FALSE, any(str_detect(tmp_voc, tmp_father)))
+  match_mother <- ifelse(tmp_mother == "", FALSE, any(str_detect(tmp_voc, tmp_mother)))
+  
+  tibble(mp_id = x$root$id,
+         match_mother, 
+         match_father)
+})
+
+voc_map <- bind_rows(voc_map)
+
+```
+
+```{r}
+#| fig-width: 8
+#| fig-height: 6
+mps7377 |> 
+  left_join(voc_map, by = "mp_id") |> 
+  group_by(gender) |> 
+  summarize(Father = 100 * (sum(match_father) / length(mp_id)),
+            Mother = 100 * (sum(match_mother) / length(mp_id)),
+            .groups = "keep") |> 
+  pivot_longer(cols = c(Father, Mother),
+               names_to = "match",
+               values_to = "count") |> 
+  mutate(gender = ifelse(gender == "kvinne", "Women", "Men")) |> 
+  ggplot(aes(x = gender, y = count, fill = gender)) +
+  geom_bar(stat = "identity", position = position_dodge(width = .5)) +
+  facet_wrap(~ match) +
+  scale_fill_manual(values = c("orange3", "cyan4")) +
+  scale_y_continuous(expand = expansion(mult = c(0, .1)),
+                     breaks = seq(0, 100, 2)) +
+  labs(x = "", y = "Percentage with match",
+       fill = "MP gender") +
+  theme_stv2022() +
+  theme(strip.background = element_rect(color = "black"),
+        panel.border = element_rect(color = "black"),
+        legend.position = "none")
+
+```
+
+## Bonus example
+
+
+```{r}
+library(tidytext)
+library(igraph)
+library(ggraph)
+library(widyr)
+library(spacyr);spacy_initialize(model = "nb_core_news_lg")
+
+literature <- lapply(mp_bios, \(x) {
+  if(nrow(x$literature) > 0) {
+    tmp <- suppressWarnings(spacy_parse(x$literature$title))
+  } else {
+    tmp <- tibble(lemma = NA)
+  }
+  
+  tibble(mp_id = x$root$id,
+         tokens = tmp$lemma)
+})
+
+bind_rows(literature) |> View()
+
+lit_pairs <- bind_rows(literature) |> 
+  mutate(tokens = tolower(tokens)) |> 
+  anti_join(tibble(tokens = quanteda::stopwords("no"), by = "tokens")) |>
+  anti_join(tibble(tokens = quanteda::stopwords("en"), by = "tokens")) |>
+  filter(str_detect(tokens, "[0-9]+|[[:punct:]]") == FALSE) |>
+  filter(nchar(tokens) > 2) |> 
+  pairwise_count(tokens, mp_id, sort = TRUE, upper = FALSE)
+
+set.seed(09342)
+
+lit_pairs %>% 
+  filter(n >= 4) %>% 
+  graph_from_data_frame() %>% 
+  ggraph(layout = "igraph", algorithm = "kk") +
+  geom_edge_link(aes(edge_alpha = n, edge_width = n), edge_colour = "green4") +
+  geom_node_point(size = 2) +
+  geom_node_text(aes(label = name), repel = TRUE, max.overlaps = 60) +
+  theme_stv2022() +
+  theme(axis.line = element_blank(),
+        panel.grid = element_blank(),
+        legend.position = "none")
+
+
+
+```
+
+## Work in progress { .smaller }
+
+```{r}
+#| eval: false
+#| echo: true
+#| message: false
+rc_votes <- covid_relief |> 
+  filter(n_for > 0)
+
+library(noRc)
+
+vote_mat <- rc_get(rc_votes$vote_id,
+                   include_voteinfo = TRUE,
+                   include_mpinfo = TRUE)
+```
+
+```{r}
+#| echo: false
+#| message: false
+
+library(noRc)
+
+load("../../data/vote_mat.rda")
+
+summary(vote_mat)
+
+```
+
+---
+
+```{r}
+#| echo: false
+#| message: false
+#| output: false
+#| 
+
+library(oc)
+covid_oc <- oc(vote_mat, polarity = c("ALES", "UIL"), minvotes = 5, lop = 0.1)
+
+```
+
+```{r}
+#| label: fig-oc
+#| echo: false
+#| message: false
+#| fig-height: 5
+#| fig-width: 8
+#| fig-cap-location: top
+#| fig-cap: OC Roll Call Scaling for all votes in case 85196
+
+covid_oc$legislators |> 
+  tidyr::drop_na() |> 
+  dplyr::mutate(party_id = ifelse(party_id %in% c("A|Sp", "FrP|Uav"), "Other", party_id)) |> 
+  ggplot(aes(x = coord1D, y = coord2D)) +
+  geom_jitter(aes(color = forcats::fct_reorder(party_id, coord1D)), 
+              width = .05, height = .075, size = 2) +
+    scale_color_manual(values = c(
+    "A"   = "#D70926",
+    "FrP" = "#09367F",
+    "H"   = "#0065f1",
+    "Sp"  = "#00491E",
+    "KrF" = "#FFD600",
+    "SV"  = "#440C1A",
+    "V"   = "#006666"
+  )) +
+  scale_x_continuous(breaks = seq(-1, 1, .25)) +
+  scale_y_continuous(breaks = seq(-1, 1, .25)) +
+  guides(color = guide_legend(nrow = 1)) +
+  geom_text(aes(label = ifelse(party_id %in% c("MDG", "R", "Other"), mp_id, "")),
+            color = "gray20",
+            position = position_jitter(width = .05, height = .05)) +
+  labs(color = "", x = "Dimension 1", y = "Dimension 2") +
+  theme_stv2022() +
+  theme(legend.position = "top")
+# PST  = Stoknes, Per Espen
+# JBO  = Bøhler, Jan
+# BJMO = Moxnes, Bjørnar
+# UIL  = Leirstein, Ulf Isak
+```
+
+
+# Thanks!
+
+```{r}
+#| label: stortingscrape_install_credits
+#| eval: false
+#| echo: true
+
+# CRAN (version 0.1.3)
+install.packages("stortingscrape")
+
+# Development version (version 0.1.4)
+devtools::install_github("martigso/stortingscrape")
+
+```
+
+
+# References
+
+<div style='font-size:16pt'>
+
+::: {#refs}
+:::
