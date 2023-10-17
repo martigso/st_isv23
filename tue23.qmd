@@ -20,10 +20,19 @@ editor_options:
   chunk_output_type: console
 ---
 
+# [Follow the presentation]{.midgreen}
 
-# [The process]{.midgreen}`r emo::ji("mag")` { data-background="./figs/tad_fig2.png" data-background-size=55% data-background-position="50% 70%"}
+```{r}
+#| eval: false
+#| echo: false
+library(qrcode)
+png("figs/tue23.png")
+qr_code("https://martigso.github.io/st_isv23/tue23") |>
+  plot()
+dev.off()
+```
 
-[@Gilardi2018]{.smalltext}
+![](figs/tue23.png)
 
 ```{r}
 #| include: false
@@ -38,15 +47,12 @@ quanteda_options("print_dfm_max_ndoc" = 10)
 source("theme_sscrape.R")
 ```
 
-<!-- # [Follow the presentation]{.midgreen} -->
 
-<!-- fixme: make qr if necessary -->
-<!-- ![](figs/qr_presentation2.png) -->
-<!-- # { data-background="figs/uio_page2.png" background-size="80%" background-position="50% 50%"} -->
+# { data-background="figs/uio_page2.png" background-size="80%" background-position="50% 50%"}
 
+# [The process]{.midgreen}`r emo::ji("mag")` { data-background="./figs/tad_fig2.png" data-background-size=55% data-background-position="50% 70%"}
 
-
-  
+[@Gilardi2018]{.smalltext}
 
 . . .
 
@@ -725,7 +731,14 @@ covid_oc$legislators |>
 ```
 
 
-# Thanks!
+# Thanks! { .smaller }
+
+:::: { .columns}
+
+
+::: {.column width=60%}
+
+</br>
 
 ```{r}
 #| label: stortingscrape_install_credits
@@ -739,7 +752,15 @@ install.packages("stortingscrape")
 devtools::install_github("martigso/stortingscrape")
 
 ```
+:::
 
+::: {.column width=40%}
+
+![](figs/tue23.png){width=50%}
+
+:::
+
+::::
 
 # References
 
